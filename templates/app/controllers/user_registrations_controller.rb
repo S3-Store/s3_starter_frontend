@@ -7,6 +7,7 @@ class UserRegistrationsController < Devise::RegistrationsController
   def create
     build_resource(spree_user_params)
     if resource.save
+      set_user_group(resource) if current_store&.enforce_group_upon_signup
       set_flash_message(:notice, :signed_up)
       sign_in(:spree_user, resource)
       session[:spree_user_signup] = true
@@ -33,5 +34,16 @@ class UserRegistrationsController < Devise::RegistrationsController
 
   def spree_user_params
     params.require(:spree_user).permit(Spree::PermittedAttributes.user_attributes | [:email])
+  end
+
+  # Sets the user group for a user if they don't have one assigned
+  # This method checks if there's a user and if they don't have a user group on sign up
+  # If these conditions are met, it assigns the default cart user group from the current store
+  # If enforce_group_upon_signup is enabled on the store settings
+  def set_user_group(user)
+    if user && user.user_group.nil?
+      user_group = current_store.default_cart_user_group
+      user.update(user_group: user_group) if user_group
+    end
   end
 end
